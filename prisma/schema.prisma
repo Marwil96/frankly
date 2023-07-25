@@ -1,6 +1,7 @@
 generator client {
     provider        = "prisma-client-js"
     previewFeatures = ["referentialIntegrity"]
+    binaryTargets = ["native", "darwin-arm64"]
 }
 
 datasource db {
@@ -9,21 +10,32 @@ datasource db {
     referentialIntegrity = "prisma"
 }
 
-model Product {
-    id          Int       @id @default(autoincrement())
-    name        String
-    description String
-    price       Decimal
-    image       String
-    category    Category? @relation(fields: [category_id], references: [id])
-    category_id Int
-
-    @@index([category_id])
+model User {
+  id          Int      @id @default(autoincrement())
+  username    String
+  email       String   @unique
+  password    String
+  projects   Project[] @relation("UserToProject")
+  reviews     Review[]
 }
 
-model Category {
-    id          Int       @id @default(autoincrement())
-    name        String
-    description String
-    products    Product[]
+model Project {
+  id          Int      @id @default(autoincrement())
+  project_name        String
+  users       User[]   @relation("UserToProject")
+  reviews     Review[]
+}
+
+model Review {
+  id          Int      @id @default(autoincrement())
+  review_content  String
+  under_review Boolean
+  review_by  String
+  approved    Boolean
+  product_id  Int?
+  stars       Int
+  user        User?    @relation(fields: [user_id], references: [id])
+  user_id      Int?
+  project     Project? @relation(fields: [project_id], references: [id])
+  project_id   Int?
 }

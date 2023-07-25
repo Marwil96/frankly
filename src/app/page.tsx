@@ -1,30 +1,25 @@
 import Head from 'next/head';
-import Product from '../components/Product';
+import AddReviewForm from '../components/ReviewForm';
 import { prisma } from './../../lib/prisma';
 
 async function getData() {
-  const data = await prisma.product.findMany({
-    include: {
-      category: true,
-    },
+  const reviews = await prisma.review.findMany({
+    where: {
+      project_id: 1, // Should be the id of the user that is logged in
+      // product_id: 1 // Filter on Product? Load up product or something ...
+    }
   });
 
-  //convert decimal value to string to pass through as json
-  const products = data.map((product) => ({
-    ...product,
-    price: product.price.toString(),
-  }));
-
   return {
-    products
+    reviews
   };
 }
 
 
 const Home = async () => {
-  const { products } = await getData();
-  console.log(products, products)
-  if (!products) return <div>Loading...</div>
+  const { reviews } = await getData();
+  console.log(reviews, reviews)
+  if (!reviews) return <div>Loading...</div>
 
   return (
     <div>
@@ -39,9 +34,12 @@ const Home = async () => {
         <p className="mb-20 text-xl text-center">
           🔥 Shop from the hottest items in the world 🔥
         </p>
+        <AddReviewForm />
         <div className="grid md:grid-cols-3 sm:grid-cols-2 grid-cols-1 justify-items-center  gap-4">
-          {products.map((product) => (
-            <Product product={product} key={product.id} />
+          {reviews.map((review, index) => (
+            <div key={index}>
+              <h1>{review.review_content}</h1>
+            </div>
           ))}
         </div>
       </main>
