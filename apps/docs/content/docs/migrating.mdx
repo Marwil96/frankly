@@ -1,0 +1,40 @@
+---
+title: Migrating to Frankly
+description: Import reviews from CSV or migrate from other platforms
+---
+
+# Migrating to Frankly
+
+Coming soon — this page will cover how to import existing reviews into Frankly.
+
+## Planned Features
+
+- **CSV import** — Bulk import reviews from a spreadsheet with columns for SKU, rating, title, body, reviewer name, email, and date
+- **Platform migrations** — Step-by-step guides for migrating from:
+  - Yotpo
+  - Judge.me
+  - Trustpilot
+  - Stamped.io
+  - Custom / in-house review systems
+
+## In the Meantime
+
+If you need to import existing reviews, please reach out to support. We can assist with manual migrations on a case-by-case basis.
+
+### Data Format
+
+When preparing your review data for import, structure it with the following fields:
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `sku` | Yes | Product SKU matching your Centra catalog |
+| `rating` | Yes | Integer 1-5 |
+| `title` | Yes | Review headline |
+| `body` | Yes | Review text |
+| `reviewerName` | Yes | Display name |
+| `reviewerEmail` | Yes | Customer email (for deduplication) |
+| `createdAt` | No | Original review date (ISO 8601) |
+| `verifiedPurchase` | No | Boolean — whether the original review was verified |
+| `locale` | No | Review locale (`en`, `sv`, `nb`, `da`) |
+
+This format will be used for the upcoming CSV import tool and API-based migration endpoint.

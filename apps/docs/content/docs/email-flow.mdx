@@ -1,0 +1,128 @@
+---
+title: Email Flow
+description: How post-purchase review request emails work in Frankly
+---
+
+# Email Flow
+
+Frankly automatically sends review request emails to customers after their order ships. This page explains the full lifecycle of a review request email.
+
+## How It Works
+
+```
+Order ships → Centra webhook → Frankly schedules email → Delay period → Email sent → Reminder (optional)
+```
+
+### 1. Webhook Trigger
+
+When an order is shipped, Centra fires a `shipment.created` webhook to Frankly. Frankly extracts each line item from the order and creates a separate email request for each product SKU.
+
+### 2. Scheduling
+
+Each email request is scheduled with a configurable delay. The delay is set per-store in the Frankly dashboard under **Settings → Email delay days**.
+
+- **Default delay**: 7 days after webhook received
+- **Configurable**: Set to any number of days (0 for immediate, though delivery still depends on the cron schedule)
+
+The delay gives customers enough time to receive and try the product before being asked for a review.
+
+### 3. Email Delivery
+
+A cron job runs periodically (typically every 15 minutes via Vercel Cron or similar) and processes scheduled emails:
+
+1. Queries all email requests with status `"scheduled"` and `sendAt <= now`
+2. Checks each recipient against the unsubscribe list
+3. Sends the review request email via Resend
+4. Updates the email request status to `"sent"`
+
+Emails are processed in batches of 100 per cron run.
+
+### 4. Email Content
+
+The review request email includes:
+
+- Customer greeting (using the name from the order)
+- Product name and image (if provided in the webhook payload)
+- A call-to-action link that opens the review landing page
+- The link contains a pre-authenticated token so the customer does not need to log in
+- When the customer clicks a star in the email, they land on the review page with that star rating pre-selected
+- An unsubscribe link at the bottom
+
+### 5. Reminder Email
+
+If a customer has not submitted a review 7 days after the initial email was sent, Frankly automatically sends a single reminder:
+
+- The cron job checks for email requests with status `"sent"`, `sentAt` more than 7 days ago, and no `remindedAt` timestamp
+- A reminder email is sent with similar content but a friendlier tone
+- The email request status is updated to `"reminded"`
+- Only one reminder is sent per email request — Frankly does not send repeated reminders
+
+### 6. Status Lifecycle
+
+Each email request goes through these statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `scheduled` | Created by webhook, waiting for delay period |
+| `sent` | Initial email delivered |
+| `reminded` | Reminder email delivered |
+| `unsubscribed` | Customer unsubscribed — no email sent |
+
+## Timing Diagram
+
+```
+Day 0: Order ships, Centra webhook fires
+       └── Frankly creates email request (status: scheduled, sendAt: Day 7)
+
+Day 7: Cron processes the email
+       └── Email sent to customer (status: sent)
+
+Day 14: Cron checks for reminders
+        └── If no review submitted: reminder sent (status: reminded)
+```
+
+## Unsubscribe Handling
+
+At every step, Frankly checks the unsubscribe list before sending:
+
+- If a customer unsubscribes (via the link in the email), their email is added to the unsubscribe list for that store
+- Any pending or future email requests for that customer are skipped
+- The GDPR erasure endpoint also adds the customer to the unsubscribe list
+
+## Review Token
+
+Each email contains a unique review token that encodes:
+
+- Store ID
+- Order ID
+- Product SKU
+- Customer email
+
+When the customer submits a review using this token, the review is automatically marked as a **verified purchase**. Tokens are validated server-side and cannot be forged.
+
+## Localization
+
+Email content is localized based on the `customerLocale` field from the webhook payload:
+
+- The locale is extracted from `order.language` in the Centra webhook
+- Falls back to the store's default locale
+- Supported locales: `en` (English), `sv` (Swedish), `nb` (Norwegian), `da` (Danish)
+
+See [Localization](/docs/localization) for more details.
+
+## Per-Product Emails
+
+Frankly sends one email per product SKU in the order. If a customer orders 3 different products, they receive 3 separate review request emails (each after the configured delay). This approach ensures each product gets its own review and avoids overwhelming the customer with a single long email.
+
+## Deduplication
+
+Email requests are deduplicated on `(storeId, orderId, sku)`. If Centra sends the same webhook multiple times (due to retries or duplicate events), Frankly only creates one email request per unique combination.
+
+## Configuration Summary
+
+| Setting | Location | Default |
+| --- | --- | --- |
+| Email enabled | Dashboard → Settings | On |
+| Email delay (days) | Dashboard → Settings | 7 |
+| Reminder delay | Hardcoded | 7 days after initial email |
+| Batch size per cron | Hardcoded | 100 |

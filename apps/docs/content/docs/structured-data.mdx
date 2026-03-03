@@ -1,0 +1,186 @@
+---
+title: Structured Data
+description: JSON-LD structured data for Google rich snippets
+---
+
+# Structured Data
+
+Frankly provides a JSON-LD endpoint that generates Schema.org structured data for your products. This enables Google rich snippets — the star ratings that appear directly in search results.
+
+## The Schema Endpoint
+
+```
+GET /api/v1/reviews/schema?sku=PRODUCT-SKU
+```
+
+This endpoint returns a complete JSON-LD object following the [Schema.org Product](https://schema.org/Product) specification, including:
+
+- Product name and image
+- Aggregate rating (average, count, best/worst)
+- Up to 10 most recent individual reviews
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sku` | string | Yes | Product SKU |
+| `name` | string | No | Product name (defaults to SKU if not provided) |
+| `image` | string | No | Product image URL |
+
+### Example Request
+
+```bash
+curl -H "X-API-Key: pk_live_abc123" \
+  "https://your-frankly-domain.com/api/v1/reviews/schema?sku=TSHIRT-BLACK-M&name=Classic+T-Shirt&image=https://cdn.example.com/tshirt.jpg"
+```
+
+### Example Response
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Classic T-Shirt",
+  "image": "https://cdn.example.com/tshirt.jpg",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.3",
+    "reviewCount": "42",
+    "bestRating": "5",
+    "worstRating": "1"
+  },
+  "review": [
+    {
+      "@type": "Review",
+      "reviewRating": {
+        "@type": "Rating",
+        "ratingValue": "5",
+        "bestRating": "5"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Anna S."
+      },
+      "datePublished": "2025-01-15",
+      "reviewBody": "Great quality cotton, fits exactly as described."
+    }
+  ]
+}
+```
+
+## Injecting into Your HTML
+
+To enable rich snippets, inject the JSON-LD into your product page's `<head>` tag. Here are examples for common frameworks.
+
+### Next.js (App Router)
+
+```tsx
+// app/products/[slug]/page.tsx
+
+async function getSchemaData(sku: string, name: string, image: string) {
+  const res = await fetch(
+    `https://your-frankly-domain.com/api/v1/reviews/schema?sku=${sku}&name=${encodeURIComponent(name)}&image=${encodeURIComponent(image)}`,
+    {
+      headers: { "X-API-Key": process.env.FRANKLY_API_KEY! },
+      next: { revalidate: 3600 }, // cache for 1 hour
+    }
+  );
+  return res.json();
+}
+
+export default async function ProductPage({ params }) {
+  const product = await getProduct(params.slug);
+  const schema = await getSchemaData(product.sku, product.name, product.image);
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      />
+      {/* ... rest of page */}
+    </>
+  );
+}
+```
+
+### Plain HTML / Server-Side Rendering
+
+Fetch the JSON-LD on the server and inject it into the page:
+
+```html
+<head>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": "Classic T-Shirt",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.3",
+        "reviewCount": "42",
+        "bestRating": "5",
+        "worstRating": "1"
+      }
+    }
+  </script>
+</head>
+```
+
+### Client-Side Injection
+
+If you cannot render server-side, you can fetch and inject the schema client-side:
+
+```javascript
+async function injectSchema(sku, name, image) {
+  const params = new URLSearchParams({ sku, name, image });
+  const res = await fetch(
+    `https://your-frankly-domain.com/api/v1/reviews/schema?${params}`,
+    { headers: { "X-API-Key": "pk_live_abc123" } }
+  );
+  const schema = await res.json();
+
+  const script = document.createElement("script");
+  script.type = "application/ld+json";
+  script.textContent = JSON.stringify(schema);
+  document.head.appendChild(script);
+}
+```
+
+Note: Google can read client-side injected JSON-LD, but server-side rendering is preferred for faster indexing.
+
+## Verifying Rich Snippets
+
+### 1. Google Rich Results Test
+
+Use [Google's Rich Results Test](https://search.google.com/test/rich-results) to validate your structured data:
+
+1. Enter your product page URL
+2. Click "Test URL"
+3. Look for "Product" in the results
+4. Verify that aggregate rating and reviews are detected
+
+### 2. Schema.org Validator
+
+Use the [Schema.org Validator](https://validator.schema.org/) for a more detailed check of your JSON-LD syntax.
+
+### 3. Google Search Console
+
+After deploying, check Google Search Console under **Enhancements → Product snippets** to see if Google has successfully crawled and indexed your structured data. This may take days or weeks after deployment.
+
+## Caching Recommendations
+
+The schema endpoint queries the database on every request. For production, consider:
+
+- **Next.js ISR**: Use `revalidate: 3600` (1 hour) in your `fetch` call
+- **CDN caching**: Set `Cache-Control` headers on your product pages
+- **Edge caching**: Use your CDN or Vercel Edge to cache the API response
+
+The data does not change frequently (only when new reviews are approved), so caching for 1-4 hours is safe.
+
+## Notes
+
+- The endpoint only includes **approved** reviews in the structured data
+- If there are no approved reviews for a SKU, the `aggregateRating` and `review` fields are omitted
+- Up to 10 most recent reviews are included in the individual `review` array
+- The `name` parameter defaults to the SKU value if not provided — always pass a human-readable product name for best results

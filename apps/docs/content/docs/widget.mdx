@@ -1,0 +1,119 @@
+---
+title: Widget
+description: Drop-in JavaScript widget for any storefront
+---
+
+# JavaScript Widget
+
+The Frankly widget is a single script tag you can add to any HTML page. It renders a complete review experience — review list with stats, pagination, and a review submission form — inside a Shadow DOM so it will not conflict with your existing styles.
+
+## Installation
+
+Add the script tag to your product page HTML, placing it where you want the reviews to appear:
+
+```html
+<script
+  src="https://your-frankly-domain.com/widget.js"
+  data-frankly-api-key="your-public-api-key"
+  data-frankly-sku="PRODUCT-SKU-001"
+></script>
+```
+
+The widget renders immediately after the script tag. No additional initialization code is needed.
+
+## Configuration
+
+Configure the widget using `data-` attributes on the script tag:
+
+| Attribute | Required | Description |
+| --- | --- | --- |
+| `data-frankly-api-key` | Yes | Your public API key from the Frankly dashboard |
+| `data-frankly-sku` | Yes | The product SKU to display reviews for |
+| `data-frankly-locale` | No | Locale for UI strings (`en`, `sv`, `nb`, `da`). Defaults to `en` |
+| `data-frankly-api-url` | No | Override the API base URL. By default, derived from the script `src` URL origin |
+
+### Example with All Options
+
+```html
+<script
+  src="https://your-frankly-domain.com/widget.js"
+  data-frankly-api-key="pk_live_abc123"
+  data-frankly-sku="HOODIE-NAVY-L"
+  data-frankly-locale="sv"
+  data-frankly-api-url="https://your-frankly-domain.com"
+></script>
+```
+
+## How It Works
+
+1. The script reads configuration from `data-` attributes
+2. It creates a `<div id="frankly-reviews">` container right after the script tag
+3. It attaches a **Shadow DOM** to that container — this encapsulates all widget styles so they cannot leak into or be affected by your page styles
+4. Inside the Shadow DOM, it renders:
+   - A **Customer Reviews** card with aggregate stats and a paginated review list
+   - A **Write a Review** card with a full submission form
+5. Reviews are fetched from the Frankly API and rendered with star ratings, verified purchase badges, reviewer names, dates, and photo thumbnails
+6. The pagination controls (Previous / Next) load additional pages without a full page reload
+
+## API URL Detection
+
+If you do not set `data-frankly-api-url`, the widget derives the API URL from the `src` attribute of the script tag. For example, if the script is loaded from:
+
+```
+https://reviews.mystore.com/widget.js
+```
+
+The API URL will automatically be set to `https://reviews.mystore.com`.
+
+If the widget is loaded from a CDN or bundled differently, you should explicitly set `data-frankly-api-url`.
+
+## Shadow DOM Isolation
+
+The widget uses Shadow DOM (`mode: "open"`) to encapsulate its styles. This means:
+
+- Widget styles do not affect your page
+- Your page styles do not affect the widget
+- The widget uses its own font stack and color scheme
+- No CSS class name conflicts
+
+If you need to style the widget differently, you would need to use a custom integration via the [React SDK](/docs/react-sdk) or the [REST API](/docs/api-reference).
+
+## Multiple Widgets on One Page
+
+You can include multiple widget script tags on the same page with different SKUs:
+
+```html
+<h2>T-Shirt Reviews</h2>
+<script
+  src="https://your-frankly-domain.com/widget.js"
+  data-frankly-api-key="pk_live_abc123"
+  data-frankly-sku="TSHIRT-BLACK-M"
+></script>
+
+<h2>Hoodie Reviews</h2>
+<script
+  src="https://your-frankly-domain.com/widget.js"
+  data-frankly-api-key="pk_live_abc123"
+  data-frankly-sku="HOODIE-NAVY-L"
+></script>
+```
+
+Each widget instance operates independently with its own Shadow DOM container.
+
+## Photo Uploads
+
+The widget's review form supports photo uploads via the submission form. Customers can attach up to 3 images (JPEG, PNG, or WebP, max 10 MB each). Photos are submitted as multipart form data.
+
+## Error Handling
+
+If the widget fails to load reviews (network error, invalid API key, etc.), it displays a "Failed to load reviews" error message inside the widget container. The review form remains functional independently.
+
+If the script tag is missing required `data-frankly-api-key` or `data-frankly-sku` attributes, the widget logs an error to the browser console and does not render:
+
+```
+[Frankly] Missing data-frankly-api-key or data-frankly-sku
+```
+
+## Browser Support
+
+The widget uses Shadow DOM and modern JavaScript. It is compatible with all current versions of Chrome, Firefox, Safari, and Edge. It does not support Internet Explorer.

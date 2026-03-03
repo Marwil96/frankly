@@ -1,0 +1,130 @@
+---
+title: Centra Integration
+description: Detailed Centra webhook setup for Frankly
+---
+
+# Centra Integration
+
+Frankly integrates with Centra via webhooks. When an order ships, Centra sends a webhook to Frankly, which schedules a review request email for each line item in the order.
+
+## Webhook URL Format
+
+```
+https://your-frankly-domain.com/api/webhooks/centra?store=YOUR_STORE_ID
+```
+
+Replace `YOUR_STORE_ID` with the store ID from your Frankly dashboard settings.
+
+## Setting Up in Centra
+
+1. Log in to your **Centra admin panel**
+2. Navigate to **System → Webhooks** (or **Settings → Integrations → Webhooks** depending on your Centra version)
+3. Click **Add Webhook**
+4. Configure the webhook:
+   - **URL**: Your Frankly webhook URL (see format above)
+   - **Event type**: `shipment.created` — triggers when an order is shipped
+   - **Signing secret**: Generate a strong random string (at least 32 characters)
+5. Save the webhook
+
+## Signing Secret
+
+The signing secret is used to verify that webhook requests actually come from Centra. You must configure the same secret in two places:
+
+1. **Centra**: In the webhook configuration
+2. **Frankly**: In your dashboard under **Settings → Centra Webhook Secret**
+
+Frankly verifies the `X-Centra-Signature` header on every incoming webhook request. If the signature does not match, the request is rejected with a `401` response.
+
+## Webhook Payload
+
+Frankly expects a JSON payload with the following structure. It handles several Centra payload formats, extracting data from whichever fields are present:
+
+```json
+{
+  "order": {
+    "id": "12345",
+    "customer": {
+      "email": "customer@example.com",
+      "firstName": "Anna"
+    },
+    "language": "sv",
+    "lines": [
+      {
+        "sku": "TSHIRT-BLACK-M",
+        "product": {
+          "name": "Classic T-Shirt",
+          "image": "https://cdn.example.com/tshirt-black.jpg"
+        }
+      },
+      {
+        "sku": "HOODIE-NAVY-L",
+        "product": {
+          "name": "Navy Hoodie",
+          "image": "https://cdn.example.com/hoodie-navy.jpg"
+        }
+      }
+    ]
+  }
+}
+```
+
+### Field Mapping
+
+Frankly extracts the following fields from the payload:
+
+| Field | Primary path | Fallback paths |
+| --- | --- | --- |
+| Order ID | `order.id` | `orderId` |
+| Customer email | `order.customer.email` | `customer.email` |
+| Customer name | `order.customer.firstName` | `customer.name`, defaults to "Customer" |
+| Locale | `order.language` | `language`, falls back to store default |
+| Line items | `order.lines` | `lines` |
+| SKU | `lines[].sku` | `lines[].product.sku`, `lines[].productSku` |
+| Product name | `lines[].product.name` | `lines[].name`, falls back to SKU |
+| Product image | `lines[].product.image` | `lines[].image` |
+
+## What Happens After a Webhook
+
+1. **Validation** — Frankly verifies the signature and checks that the store exists
+2. **Unsubscribe check** — If the customer has previously unsubscribed, the webhook is accepted but no email is scheduled
+3. **Email scheduling** — For each line item with a valid SKU, Frankly creates an email request scheduled for `N` days in the future (configurable in dashboard settings, default 7 days)
+4. **Deduplication** — If the same order ID + SKU combination already has a scheduled email, it is silently skipped (no duplicate emails)
+
+## Duplicate Prevention
+
+Frankly enforces a unique constraint on `(storeId, orderId, sku)` for email requests. If Centra sends the same webhook multiple times (retries, duplicate events), only the first request creates an email schedule. Subsequent duplicates are silently ignored.
+
+## Troubleshooting
+
+### Webhook returns 400: "missing store param"
+
+The webhook URL is missing the `?store=` query parameter. Make sure your URL includes your store ID:
+
+```
+https://your-frankly-domain.com/api/webhooks/centra?store=YOUR_STORE_ID
+```
+
+### Webhook returns 401: "invalid signature"
+
+The signing secret in Centra does not match the one configured in Frankly. Double-check both values and make sure there are no trailing spaces.
+
+### Webhook returns 404: "not found"
+
+Either the store ID in the URL does not exist, the store has no webhook secret configured, or email sending is disabled for this store. Check your Frankly dashboard settings.
+
+### Webhook returns 400: "missing order or customer data"
+
+The webhook payload does not contain a customer email or order ID. Verify that you are using the correct event type in Centra (`shipment.created`) and that the order has a customer email address.
+
+### Emails are not being sent
+
+Check the following:
+
+1. **Email enabled** — Make sure email sending is enabled in your dashboard settings
+2. **Delay** — Emails are sent after a configurable delay (default 7 days). For testing, set the delay to 0
+3. **Cron job** — The email sending cron must be running. Emails are processed in batches by the `GET /api/cron/send-emails` endpoint
+4. **Unsubscribe** — The customer may have previously unsubscribed
+
+### Customer received duplicate emails
+
+This should not happen due to the unique constraint. If it does, check that the same SKU is not appearing with slightly different values across webhook payloads (e.g., `TSHIRT-BLK-M` vs `TSHIRT-BLACK-M`).

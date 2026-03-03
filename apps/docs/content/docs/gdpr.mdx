@@ -1,0 +1,160 @@
+---
+title: GDPR & Compliance
+description: Data handling, right to erasure, and regulatory compliance
+---
+
+# GDPR & Compliance
+
+Frankly is designed with privacy and regulatory compliance in mind. This page covers data handling practices, GDPR features, and Omnibus Directive compliance.
+
+## Data Handling
+
+### What Data is Stored
+
+Frankly stores the following personal data:
+
+| Data | Purpose | Source |
+| --- | --- | --- |
+| Reviewer name | Displayed on published reviews | Submitted by customer |
+| Reviewer email | Deduplication, erasure, unsubscribe | Submitted by customer or from webhook |
+| Customer name | Email personalization | Centra webhook |
+| Customer email | Sending review request emails | Centra webhook |
+| Order ID | Linking reviews to purchases | Centra webhook |
+| Customer locale | Email/widget localization | Centra webhook |
+| Review content | The review itself (title, body, rating) | Submitted by customer |
+| Photos | Uploaded review images | Submitted by customer |
+
+### Data Hosting
+
+Frankly is hosted on Vercel with data stored in a PostgreSQL database. All data is hosted in the **EU** region. Photo uploads are stored via Vercel Blob with CDN distribution.
+
+### Data Retention
+
+- Reviews are stored indefinitely unless deleted via the erasure endpoint or admin dashboard
+- Email request records are stored for auditing and deduplication
+- Unsubscribe records are stored permanently to prevent re-emailing
+
+## Right to Erasure (Article 17)
+
+Frankly provides a dedicated API endpoint for GDPR right-to-erasure requests. When called, it deletes all personal data associated with an email address within your store.
+
+### API Endpoint
+
+```
+DELETE /api/v1/reviews/erasure
+```
+
+### Request
+
+```bash
+curl -X DELETE \
+  -H "X-API-Key: pk_live_abc123" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "customer@example.com"}' \
+  "https://your-frankly-domain.com/api/v1/reviews/erasure"
+```
+
+### What Gets Deleted
+
+When an erasure request is processed:
+
+1. **All reviews** by the email address in your store are permanently deleted
+2. **All review photos** associated with those reviews are deleted
+3. **All email requests** (scheduled, sent, reminded) for that email are deleted
+4. The email is **added to the unsubscribe list** to prevent future emails
+
+### Response
+
+```json
+{
+  "deleted": {
+    "reviews": 3,
+    "emailRequests": 1
+  },
+  "unsubscribed": true
+}
+```
+
+### Integration with Your Store
+
+If you receive a GDPR erasure request from a customer, call this endpoint as part of your data deletion workflow:
+
+```typescript
+async function handleErasureRequest(customerEmail: string) {
+  // Delete from your store's systems...
+
+  // Delete from Frankly
+  await fetch("https://your-frankly-domain.com/api/v1/reviews/erasure", {
+    method: "DELETE",
+    headers: {
+      "X-API-Key": process.env.FRANKLY_API_KEY!,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email: customerEmail }),
+  });
+}
+```
+
+## Unsubscribe Mechanism
+
+Every review request email includes an unsubscribe link. When a customer clicks it:
+
+1. Their email is added to the store's unsubscribe list
+2. Any pending email requests are skipped during the next cron run
+3. No further review request emails are sent to that address
+
+The unsubscribe is per-store — if a customer unsubscribes from one store, they can still receive emails from other stores (if applicable).
+
+### Automatic Unsubscribe on Erasure
+
+The erasure endpoint automatically adds the customer to the unsubscribe list, so you do not need to handle unsubscribe separately when processing GDPR requests.
+
+## Verified Purchases & Omnibus Directive
+
+The EU Omnibus Directive (Directive 2019/2161) requires businesses to indicate whether reviews are from verified purchasers and explain how verification works.
+
+### How Frankly Verifies Purchases
+
+1. When an order ships, Centra sends a webhook to Frankly
+2. Frankly generates a unique, cryptographic review token for each line item
+3. The token encodes the store ID, order ID, SKU, and customer email
+4. The token is included in the review request email link
+5. When the customer submits a review via the email link, the token is verified server-side
+6. If valid, the review is marked as `verifiedPurchase: true`
+
+### Verified Purchase Badge
+
+Reviews from verified purchasers display a green "Verified Purchase" badge in both the React SDK and JavaScript widget. This badge is localized (e.g., "Verifierat kop" in Swedish).
+
+### Reviews Without Verification
+
+Reviews submitted directly via the widget or API without a valid token are not marked as verified purchases. They are still accepted and displayed, but without the verified badge.
+
+## Data Processing Agreement (DPA)
+
+Frankly acts as a data processor on behalf of your store (the data controller). A Data Processing Agreement is available upon request. Contact support to request a DPA.
+
+## Cookie Policy
+
+Frankly's embeddable components (React SDK and JavaScript widget) do not set any cookies. They communicate with the API using the `X-API-Key` header only. No tracking, analytics, or advertising cookies are used.
+
+## Data Minimization
+
+Frankly follows the principle of data minimization:
+
+- Only data necessary for the review functionality is collected
+- Email addresses are used solely for deduplication, erasure matching, and email delivery
+- No data is shared with third parties
+- No data is used for advertising or profiling
+
+## Summary
+
+| Feature | Status |
+| --- | --- |
+| EU data hosting | Yes (Vercel EU) |
+| Right to erasure API | Yes |
+| Unsubscribe mechanism | Yes (per email) |
+| Verified purchase badges | Yes (Omnibus compliant) |
+| DPA available | Yes (on request) |
+| Cookie-free embeds | Yes |
+| Data minimization | Yes |

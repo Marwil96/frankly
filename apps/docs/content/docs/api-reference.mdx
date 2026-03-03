@@ -1,0 +1,339 @@
+---
+title: API Reference
+description: Full REST API documentation for Frankly v1
+---
+
+# API Reference
+
+The Frankly REST API lets you fetch reviews, submit reviews, retrieve aggregate statistics, generate JSON-LD structured data, and handle GDPR erasure requests. All endpoints are under `/api/v1/reviews`.
+
+## Base URL
+
+```
+https://your-frankly-domain.com/api/v1/reviews
+```
+
+## Authentication
+
+All API requests require an API key passed in the `X-API-Key` header:
+
+```bash
+curl -H "X-API-Key: your-public-api-key" \
+  https://your-frankly-domain.com/api/v1/reviews?sku=PRODUCT-SKU
+```
+
+The API key identifies your store. You can find it in your Frankly dashboard under **Settings**.
+
+## CORS
+
+All endpoints support CORS with preflight (`OPTIONS`) requests. The API returns appropriate `Access-Control-Allow-Origin` headers based on the request origin.
+
+---
+
+## GET /api/v1/reviews
+
+Fetch approved reviews for a specific product SKU. Returns paginated results with aggregate statistics.
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sku` | string | Yes | The product SKU to fetch reviews for |
+| `page` | integer | No | Page number (default: 1) |
+| `limit` | integer | No | Reviews per page, 1-50 (default: 10) |
+| `locale` | string | No | Filter by locale (e.g., `en`, `sv`) |
+
+### Response
+
+```json
+{
+  "reviews": [
+    {
+      "id": "clx1abc23def456",
+      "sku": "TSHIRT-BLACK-M",
+      "rating": 5,
+      "title": "Perfect fit",
+      "body": "Great quality cotton, fits exactly as described.",
+      "reviewerName": "Anna S.",
+      "verifiedPurchase": true,
+      "locale": "en",
+      "createdAt": "2025-01-15T10:30:00.000Z",
+      "photos": [
+        {
+          "url": "https://cdn.example.com/review-photos/abc123.jpg",
+          "sortOrder": 0
+        }
+      ]
+    }
+  ],
+  "total": 42,
+  "page": 1,
+  "limit": 10,
+  "averageRating": 4.3,
+  "distribution": {
+    "1": 2,
+    "2": 3,
+    "3": 5,
+    "4": 12,
+    "5": 20
+  }
+}
+```
+
+### Example
+
+```bash
+curl -H "X-API-Key: pk_live_abc123" \
+  "https://your-frankly-domain.com/api/v1/reviews?sku=TSHIRT-BLACK-M&page=1&limit=5"
+```
+
+---
+
+## GET /api/v1/reviews/stats
+
+Fetch aggregate statistics for a product SKU without the full review list. Lighter than the main endpoint when you only need the star rating summary.
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sku` | string | Yes | The product SKU |
+
+### Response
+
+```json
+{
+  "averageRating": 4.3,
+  "totalReviews": 42,
+  "distribution": {
+    "1": 2,
+    "2": 3,
+    "3": 5,
+    "4": 12,
+    "5": 20
+  }
+}
+```
+
+### Example
+
+```bash
+curl -H "X-API-Key: pk_live_abc123" \
+  "https://your-frankly-domain.com/api/v1/reviews/stats?sku=TSHIRT-BLACK-M"
+```
+
+---
+
+## POST /api/v1/reviews
+
+Submit a new review. Supports both JSON and multipart form data (for photo uploads).
+
+### Rate Limiting
+
+This endpoint is rate-limited per IP address to prevent abuse. If you hit the limit, you will receive a `429 Too Many Requests` response.
+
+### JSON Request Body
+
+```json
+{
+  "sku": "TSHIRT-BLACK-M",
+  "rating": 5,
+  "title": "Perfect fit",
+  "body": "Great quality cotton, fits exactly as described.",
+  "reviewerName": "Anna S.",
+  "reviewerEmail": "anna@example.com",
+  "token": "optional-review-token-from-email"
+}
+```
+
+### Multipart Form Data
+
+When submitting with photos, use `multipart/form-data`:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sku` | string | Yes | Product SKU |
+| `rating` | integer | Yes | Rating 1-5 |
+| `title` | string | Yes | Review title |
+| `body` | string | Yes | Review body text |
+| `reviewerName` | string | Yes | Display name |
+| `reviewerEmail` | string | Yes | Email address |
+| `token` | string | No | Verification token from email |
+| `photos` | file(s) | No | Up to 3 photos (JPEG, PNG, WebP; max 10 MB each) |
+
+### Verified Purchases
+
+If the `token` field contains a valid review token (sent via the post-purchase email), the review is automatically marked as a verified purchase. Tokens are bound to a specific store and SKU.
+
+### Moderation
+
+If your store has moderation enabled, the review status will be `"pending"` and must be approved in the dashboard before it appears publicly. If moderation is disabled, reviews are `"approved"` immediately.
+
+### Response
+
+```json
+{
+  "id": "clx1abc23def456",
+  "status": "pending",
+  "message": "Review submitted and awaiting moderation."
+}
+```
+
+Or if moderation is disabled:
+
+```json
+{
+  "id": "clx1abc23def456",
+  "status": "approved",
+  "message": "Review submitted and published."
+}
+```
+
+### Example (JSON)
+
+```bash
+curl -X POST \
+  -H "X-API-Key: pk_live_abc123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sku": "TSHIRT-BLACK-M",
+    "rating": 5,
+    "title": "Perfect fit",
+    "body": "Great quality cotton.",
+    "reviewerName": "Anna",
+    "reviewerEmail": "anna@example.com"
+  }' \
+  "https://your-frankly-domain.com/api/v1/reviews"
+```
+
+### Example (Multipart with Photos)
+
+```bash
+curl -X POST \
+  -H "X-API-Key: pk_live_abc123" \
+  -F "sku=TSHIRT-BLACK-M" \
+  -F "rating=5" \
+  -F "title=Perfect fit" \
+  -F "body=Great quality cotton." \
+  -F "reviewerName=Anna" \
+  -F "reviewerEmail=anna@example.com" \
+  -F "photos=@photo1.jpg" \
+  -F "photos=@photo2.jpg" \
+  "https://your-frankly-domain.com/api/v1/reviews"
+```
+
+---
+
+## GET /api/v1/reviews/schema
+
+Returns a JSON-LD structured data object for a product, including aggregate ratings and individual reviews. This endpoint is designed to be injected into your HTML `<head>` for Google rich snippets.
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sku` | string | Yes | Product SKU |
+| `name` | string | No | Product name (defaults to SKU) |
+| `image` | string | No | Product image URL |
+
+### Response
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Classic T-Shirt",
+  "image": "https://cdn.example.com/tshirt.jpg",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.3",
+    "reviewCount": "42",
+    "bestRating": "5",
+    "worstRating": "1"
+  },
+  "review": [
+    {
+      "@type": "Review",
+      "reviewRating": {
+        "@type": "Rating",
+        "ratingValue": "5",
+        "bestRating": "5"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Anna S."
+      },
+      "datePublished": "2025-01-15",
+      "reviewBody": "Great quality cotton, fits exactly as described."
+    }
+  ]
+}
+```
+
+### Example
+
+```bash
+curl -H "X-API-Key: pk_live_abc123" \
+  "https://your-frankly-domain.com/api/v1/reviews/schema?sku=TSHIRT-BLACK-M&name=Classic+T-Shirt&image=https://cdn.example.com/tshirt.jpg"
+```
+
+See [Structured Data](/docs/structured-data) for instructions on injecting this into your storefront.
+
+---
+
+## DELETE /api/v1/reviews/erasure
+
+GDPR right-to-erasure endpoint. Deletes all reviews, review photos, and scheduled email requests for a given email address within your store. Also adds the email to the unsubscribe list to prevent future emails.
+
+### Request Body
+
+```json
+{
+  "email": "customer@example.com"
+}
+```
+
+### Response
+
+```json
+{
+  "deleted": {
+    "reviews": 3,
+    "emailRequests": 1
+  },
+  "unsubscribed": true
+}
+```
+
+### Example
+
+```bash
+curl -X DELETE \
+  -H "X-API-Key: pk_live_abc123" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "customer@example.com"}' \
+  "https://your-frankly-domain.com/api/v1/reviews/erasure"
+```
+
+See [GDPR](/docs/gdpr) for more on data handling and compliance.
+
+---
+
+## Error Responses
+
+All error responses follow a consistent format:
+
+```json
+{
+  "error": "Description of what went wrong"
+}
+```
+
+### Common HTTP Status Codes
+
+| Code | Meaning |
+| --- | --- |
+| `400` | Bad request — missing required parameters or invalid data |
+| `401` | Unauthorized — invalid or missing API key |
+| `429` | Too many requests — rate limit exceeded |
+| `500` | Internal server error |

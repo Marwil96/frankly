@@ -1,0 +1,120 @@
+---
+title: Getting Started
+description: Set up Frankly with Centra in 5 minutes
+---
+
+# Getting Started
+
+This guide walks you through connecting Frankly to your Centra store and embedding reviews on your product pages.
+
+## Prerequisites
+
+- A Centra store with webhook support
+- A storefront (React, Next.js, or any HTML site)
+
+## Step 1: Sign Up
+
+Create your Frankly account at your Frankly dashboard URL. After signing up, you will land on the admin dashboard where you can manage your store settings.
+
+## Step 2: Get Your API Key
+
+Once logged in, navigate to **Settings** in the admin dashboard. You will find:
+
+- **Public API Key** — Used in your storefront to fetch and submit reviews. This key is safe to expose in client-side code.
+- **Store ID** — A unique identifier for your store, used in the webhook URL.
+
+Copy both values; you will need them in the next steps.
+
+## Step 3: Configure the Centra Webhook
+
+Frankly collects reviews via post-purchase emails triggered by Centra shipment webhooks. To set this up:
+
+1. In your **Centra admin panel**, go to **System → Webhooks**
+2. Create a new webhook with these settings:
+   - **URL**: `https://your-frankly-domain.com/api/webhooks/centra?store=YOUR_STORE_ID`
+   - **Event**: Shipment created (or your preferred trigger)
+   - **Secret**: Generate a signing secret and paste it in both Centra and your Frankly dashboard under **Settings → Centra Webhook Secret**
+
+For detailed Centra configuration, see [Centra Integration](/docs/centra-integration).
+
+## Step 4: Configure Email Settings
+
+In the Frankly dashboard under **Settings**, configure:
+
+- **Email delay** — How many days after shipment before sending the review request (default: 7 days)
+- **Email enabled** — Toggle automated review request emails on/off
+
+## Step 5: Embed Reviews
+
+Choose one of three integration methods depending on your storefront:
+
+### Option A: React SDK (Recommended for React/Next.js)
+
+```bash
+npm install @frankly/react
+```
+
+```tsx
+import { FranklyProvider, ReviewList, ReviewForm, StarBadge } from "@frankly/react";
+
+function App() {
+  return (
+    <FranklyProvider
+      apiUrl="https://your-frankly-domain.com"
+      apiKey="your-public-api-key"
+      locale="en"
+    >
+      {/* Star badge on product listing pages */}
+      <StarBadge sku="PRODUCT-SKU-001" />
+
+      {/* Full review list on product detail pages */}
+      <ReviewList sku="PRODUCT-SKU-001" />
+
+      {/* Review submission form */}
+      <ReviewForm sku="PRODUCT-SKU-001" />
+    </FranklyProvider>
+  );
+}
+```
+
+See [React SDK docs](/docs/react-sdk) for full component reference.
+
+### Option B: Vanilla JavaScript Widget
+
+Add a single script tag to your HTML:
+
+```html
+<script
+  src="https://your-frankly-domain.com/widget.js"
+  data-frankly-api-key="your-public-api-key"
+  data-frankly-sku="PRODUCT-SKU-001"
+  data-frankly-locale="en"
+></script>
+```
+
+The widget renders automatically below the script tag inside a Shadow DOM, so it will not interfere with your existing styles. See [Widget docs](/docs/widget) for configuration options.
+
+### Option C: REST API
+
+Build a fully custom integration using the Frankly API:
+
+```bash
+curl -H "X-API-Key: your-public-api-key" \
+  "https://your-frankly-domain.com/api/v1/reviews?sku=PRODUCT-SKU-001"
+```
+
+See [API Reference](/docs/api-reference) for all endpoints.
+
+## Step 6: Verify Everything Works
+
+1. **Trigger a test webhook** from Centra (ship a test order)
+2. **Check the Frankly dashboard** — you should see a scheduled email request
+3. **Wait for the email** (or set delay to 0 for testing) and submit a test review
+4. **Check your storefront** — the review should appear in the widget or React component
+
+## Next Steps
+
+- [Centra Integration](/docs/centra-integration) — Webhook payload details and troubleshooting
+- [Structured Data](/docs/structured-data) — Set up JSON-LD for Google rich snippets
+- [Photo Reviews](/docs/photo-reviews) — Enable customer photo uploads
+- [Localization](/docs/localization) — Configure multi-language support

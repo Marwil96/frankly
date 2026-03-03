@@ -1,0 +1,151 @@
+---
+title: Localization
+description: Multi-language support for Frankly widgets and emails
+---
+
+# Localization
+
+Frankly supports multiple languages across all touchpoints — the React SDK, JavaScript widget, review request emails, and the review landing page.
+
+## Supported Locales
+
+| Code | Language |
+| --- | --- |
+| `en` | English |
+| `sv` | Swedish (Svenska) |
+| `nb` | Norwegian Bokmal (Norsk) |
+| `da` | Danish (Dansk) |
+
+English is the default locale used when no locale is specified or when an unsupported locale is provided.
+
+## How Locale Detection Works
+
+Locale is determined differently depending on the context:
+
+### Widget and React SDK
+
+The locale is set explicitly via a prop:
+
+**React SDK:**
+```tsx
+<FranklyProvider apiUrl="..." apiKey="..." locale="sv">
+  {children}
+</FranklyProvider>
+```
+
+**JavaScript widget:**
+```html
+<script
+  src="https://your-frankly-domain.com/widget.js"
+  data-frankly-api-key="..."
+  data-frankly-sku="..."
+  data-frankly-locale="sv"
+></script>
+```
+
+If `locale` is not specified, it defaults to `"en"`.
+
+### Review Request Emails
+
+The email locale is determined from the Centra webhook payload:
+
+1. **Primary**: `order.language` from the webhook payload
+2. **Fallback**: `language` at the payload root
+3. **Default**: The store's default locale configured in the dashboard
+
+This means if a customer orders from the Swedish version of your store, the review request email will automatically be sent in Swedish.
+
+### Review Landing Page
+
+When a customer clicks through from the review request email, the locale is preserved in the review token. The landing page renders in the same language as the email.
+
+### API Responses
+
+The API itself does not localize responses — it returns raw data. The `locale` field on reviews indicates the locale that was active when the review was submitted, allowing you to filter or group reviews by language.
+
+You can filter reviews by locale using the `locale` query parameter:
+
+```bash
+curl -H "X-API-Key: pk_live_abc123" \
+  "https://your-frankly-domain.com/api/v1/reviews?sku=TSHIRT-BLACK-M&locale=sv"
+```
+
+## Translated Strings
+
+The React SDK and widget include translated UI strings for all supported locales. Here is the full string map:
+
+### English (`en`)
+
+| Key | Value |
+| --- | --- |
+| reviews | Reviews |
+| writeReview | Write a Review |
+| outOf | out of 5 |
+| noReviews | No reviews yet. Be the first! |
+| verifiedPurchase | Verified Purchase |
+| submitReview | Submit Review |
+| thankYou | Thank you for your review! |
+| pending | Your review is pending approval. |
+| title | Title |
+| body | Your review |
+| name | Your name |
+| email | Your email |
+| addPhotos | Add photos |
+| showing | Showing |
+| of | of |
+| previous | Previous |
+| next | Next |
+
+### Swedish (`sv`)
+
+| Key | Value |
+| --- | --- |
+| reviews | Recensioner |
+| writeReview | Skriv en recension |
+| noReviews | Inga recensioner annu. Bli den forsta! |
+| verifiedPurchase | Verifierat kop |
+| submitReview | Skicka recension |
+| thankYou | Tack for din recension! |
+
+### Norwegian (`nb`)
+
+| Key | Value |
+| --- | --- |
+| reviews | Anmeldelser |
+| writeReview | Skriv en anmeldelse |
+| noReviews | Ingen anmeldelser enna. Bli den forste! |
+| verifiedPurchase | Verifisert kjop |
+| submitReview | Send inn anmeldelse |
+| thankYou | Takk for din anmeldelse! |
+
+### Danish (`da`)
+
+| Key | Value |
+| --- | --- |
+| reviews | Anmeldelser |
+| writeReview | Skriv en anmeldelse |
+| noReviews | Ingen anmeldelser endnu. Vaer den forste! |
+| verifiedPurchase | Verificeret kob |
+| submitReview | Indsend anmeldelse |
+| thankYou | Tak for din anmeldelse! |
+
+## Accessing Strings Programmatically
+
+If you are building a custom integration, you can import the string maps directly:
+
+```tsx
+import { getStrings, widgetStrings } from "@frankly/react";
+
+// Get strings for a specific locale
+const t = getStrings("sv");
+console.log(t.submitReview); // "Skicka recension"
+
+// Access the full string map
+console.log(widgetStrings.da.verifiedPurchase); // "Verificeret køb"
+```
+
+The `getStrings` function falls back to English if the requested locale is not supported.
+
+## Adding New Locales
+
+Additional locale support is planned. If you need a locale that is not currently supported, the React SDK's headless hooks allow you to build a fully custom UI with your own translations while still using Frankly's data layer.

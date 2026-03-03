@@ -1,0 +1,300 @@
+---
+title: React SDK
+description: Component library for embedding Frankly reviews in React storefronts
+---
+
+# React SDK
+
+The `@frankly/react` package provides ready-to-use React components for displaying and collecting product reviews. It works with any React framework including Next.js, Remix, and Gatsby.
+
+## Installation
+
+```bash
+npm install @frankly/react
+```
+
+## Setup
+
+Wrap your application (or the relevant section of your page) with `FranklyProvider`. This provides the API configuration to all child components.
+
+```tsx
+import { FranklyProvider } from "@frankly/react";
+
+export default function App({ children }) {
+  return (
+    <FranklyProvider
+      apiUrl="https://your-frankly-domain.com"
+      apiKey="your-public-api-key"
+      locale="en"
+    >
+      {children}
+    </FranklyProvider>
+  );
+}
+```
+
+### FranklyProvider Props
+
+| Prop | Type | Required | Description |
+| --- | --- | --- | --- |
+| `apiUrl` | string | Yes | Your Frankly instance URL |
+| `apiKey` | string | Yes | Your public API key |
+| `locale` | string | No | Display locale (`en`, `sv`, `nb`, `da`). Defaults to `"en"` |
+| `children` | ReactNode | Yes | Child components |
+
+---
+
+## Components
+
+### ReviewList
+
+Displays a paginated list of approved reviews for a product, including an aggregate rating summary with star distribution bars.
+
+```tsx
+import { ReviewList } from "@frankly/react";
+
+function ProductPage() {
+  return <ReviewList sku="TSHIRT-BLACK-M" />;
+}
+```
+
+#### Props
+
+| Prop | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sku` | string | Yes | Product SKU to fetch reviews for |
+| `limit` | number | No | Reviews per page (default: 10) |
+| `className` | string | No | CSS class for the wrapper element |
+
+The component automatically:
+
+- Fetches reviews and aggregate stats from the API
+- Displays an average rating with star distribution chart
+- Shows individual reviews with star rating, title, body, reviewer name, date, locale, and verified purchase badge
+- Renders photo thumbnails when reviews include images
+- Provides pagination controls (Previous / Next) when there are multiple pages
+
+---
+
+### ReviewForm
+
+A complete review submission form with star rating selection, text fields, and photo upload support.
+
+```tsx
+import { ReviewForm } from "@frankly/react";
+
+function ProductPage() {
+  return (
+    <ReviewForm
+      sku="TSHIRT-BLACK-M"
+      onSuccess={() => console.log("Review submitted!")}
+    />
+  );
+}
+```
+
+#### Props
+
+| Prop | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sku` | string | Yes | Product SKU for the review |
+| `onSuccess` | () => void | No | Callback after successful submission |
+| `className` | string | No | CSS class for the form element |
+
+The form includes:
+
+- Interactive star rating selector
+- Title and body text fields
+- Name and email fields
+- Photo upload button with thumbnail previews and remove capability
+- Submit button (disabled until a rating is selected)
+- Success state with confirmation message
+- Error display for failed submissions
+
+---
+
+### StarBadge
+
+A compact inline component that shows the average star rating and review count for a product. Ideal for product listing pages and product cards.
+
+```tsx
+import { StarBadge } from "@frankly/react";
+
+function ProductCard({ sku, name, price }) {
+  return (
+    <div>
+      <h3>{name}</h3>
+      <StarBadge sku={sku} />
+      <p>{price}</p>
+    </div>
+  );
+}
+```
+
+#### Props
+
+| Prop | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sku` | string | Yes | Product SKU |
+| `className` | string | No | CSS class for the wrapper span |
+
+Renders as: ★★★★☆ (42) — or returns `null` if there are no reviews yet (0 total).
+
+---
+
+### StarRating
+
+A star display/input component. Can be used in read-only mode to display a rating, or in interactive mode as a rating input.
+
+```tsx
+import { StarRating } from "@frankly/react";
+
+{/* Read-only display */}
+<StarRating rating={4} size={16} />
+
+{/* Interactive input */}
+<StarRating
+  rating={selectedRating}
+  interactive
+  onChange={(value) => setSelectedRating(value)}
+  size={28}
+/>
+```
+
+#### Props
+
+| Prop | Type | Required | Description |
+| --- | --- | --- | --- |
+| `rating` | number | Yes | Current rating value (1-5) |
+| `max` | number | No | Maximum stars (default: 5) |
+| `interactive` | boolean | No | Enable click-to-rate (default: false) |
+| `onChange` | (rating: number) => void | No | Callback when rating changes (interactive mode) |
+| `size` | number | No | Star size in pixels (default: 20) |
+| `className` | string | No | CSS class for the wrapper span |
+
+In interactive mode, stars respond to hover and click events, and include proper `role="button"`, `tabIndex`, and keyboard support (Enter/Space to select).
+
+---
+
+## Hooks
+
+For fully custom UIs, you can use the underlying hooks directly:
+
+### useReviews
+
+Fetches paginated reviews for a SKU.
+
+```tsx
+import { useReviews } from "@frankly/react";
+
+function CustomReviewList({ sku }) {
+  const { reviews, total, isLoading, error, page, setPage } = useReviews({
+    sku,
+    limit: 10,
+  });
+
+  if (isLoading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
+
+  return (
+    <div>
+      {reviews.map((review) => (
+        <div key={review.id}>
+          <strong>{review.title}</strong> — {review.rating}/5
+          <p>{review.body}</p>
+        </div>
+      ))}
+      <button onClick={() => setPage(page + 1)}>Next page</button>
+    </div>
+  );
+}
+```
+
+### useReviewStats
+
+Fetches aggregate stats for a SKU.
+
+```tsx
+import { useReviewStats } from "@frankly/react";
+
+function ProductRating({ sku }) {
+  const { averageRating, totalReviews, distribution, isLoading } = useReviewStats(sku);
+
+  if (isLoading) return null;
+
+  return (
+    <span>
+      {averageRating.toFixed(1)} ({totalReviews} reviews)
+    </span>
+  );
+}
+```
+
+### useSubmitReview
+
+Handles review submission with loading and error state.
+
+```tsx
+import { useSubmitReview } from "@frankly/react";
+
+function CustomForm({ sku }) {
+  const { submit, isSubmitting, error, success } = useSubmitReview();
+
+  const handleSubmit = () => {
+    submit({
+      sku,
+      name: "Anna",
+      email: "anna@example.com",
+      rating: 5,
+      title: "Great product",
+      body: "Really happy with the quality.",
+      photos: undefined, // optional File[]
+    });
+  };
+
+  if (success) return <p>Thank you!</p>;
+
+  return (
+    <div>
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      <button onClick={handleSubmit} disabled={isSubmitting}>
+        Submit Review
+      </button>
+    </div>
+  );
+}
+```
+
+---
+
+## Styling
+
+All components use inline styles with a system font stack, so they integrate cleanly into any storefront without CSS conflicts. The styling is intentionally minimal and brand-neutral.
+
+To customize appearance, you can:
+
+1. Use the `className` prop to add your own CSS classes
+2. Use the headless hooks (`useReviews`, `useReviewStats`, `useSubmitReview`) to build completely custom UI
+
+---
+
+## Localization
+
+The SDK supports four locales: `en` (English), `sv` (Swedish), `nb` (Norwegian Bokmål), and `da` (Danish). Set the locale on the `FranklyProvider`:
+
+```tsx
+<FranklyProvider apiUrl="..." apiKey="..." locale="sv">
+  {children}
+</FranklyProvider>
+```
+
+All UI strings (button labels, status messages, empty states) are automatically translated. See [Localization](/docs/localization) for more details.
+
+You can also access the string maps directly:
+
+```tsx
+import { getStrings, widgetStrings } from "@frankly/react";
+
+const swedish = getStrings("sv");
+console.log(swedish.submitReview); // "Skicka recension"
+```

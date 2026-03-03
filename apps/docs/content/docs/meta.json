@@ -1,0 +1,20 @@
+{
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "getting-started",
+    "centra-integration",
+    "---Integration---",
+    "api-reference",
+    "react-sdk",
+    "widget",
+    "---Features---",
+    "email-flow",
+    "structured-data",
+    "photo-reviews",
+    "localization",
+    "---Compliance---",
+    "gdpr",
+    "migrating"
+  ]
+}

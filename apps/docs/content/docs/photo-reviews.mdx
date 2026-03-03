@@ -1,0 +1,129 @@
+---
+title: Photo Reviews
+description: Customer photo uploads for product reviews
+---
+
+# Photo Reviews
+
+Frankly supports customer photo uploads alongside text reviews. Photos add social proof and help other shoppers make informed decisions.
+
+## Upload Limits
+
+| Constraint | Value |
+| --- | --- |
+| Max photos per review | 3 |
+| Max file size | 10 MB per photo |
+| Accepted formats | JPEG, PNG, WebP |
+
+Photos that exceed the file size limit or are in unsupported formats are silently filtered out during upload. If a customer submits more than 3 photos, only the first 3 are kept.
+
+## How It Works
+
+### Submission
+
+Photos are submitted alongside the review using `multipart/form-data`. Both the React SDK's `ReviewForm` component and the vanilla JavaScript widget include built-in photo upload UI.
+
+When using the API directly:
+
+```bash
+curl -X POST \
+  -H "X-API-Key: pk_live_abc123" \
+  -F "sku=TSHIRT-BLACK-M" \
+  -F "rating=5" \
+  -F "title=Love the color!" \
+  -F "body=Exactly as pictured." \
+  -F "reviewerName=Anna" \
+  -F "reviewerEmail=anna@example.com" \
+  -F "photos=@front-view.jpg" \
+  -F "photos=@detail-shot.png" \
+  "https://your-frankly-domain.com/api/v1/reviews"
+```
+
+The `photos` field can be repeated up to 3 times. Each file is validated server-side for type and size.
+
+### Storage
+
+Uploaded photos are stored via Vercel Blob (or your configured blob storage). Each photo gets a unique URL that is served via CDN for fast global delivery.
+
+### Display
+
+Photos are returned in the `photos` array on each review object:
+
+```json
+{
+  "id": "clx1abc23def456",
+  "rating": 5,
+  "title": "Love the color!",
+  "body": "Exactly as pictured.",
+  "photos": [
+    {
+      "url": "https://abc123.public.blob.vercel-storage.com/review-photo-xyz.jpg",
+      "sortOrder": 0
+    },
+    {
+      "url": "https://abc123.public.blob.vercel-storage.com/review-photo-abc.png",
+      "sortOrder": 1
+    }
+  ]
+}
+```
+
+The React SDK's `ReviewList` component and the vanilla widget both render photo thumbnails (64x64px, cover-fit with rounded corners) below the review body.
+
+## React SDK
+
+The `ReviewForm` component includes a photo upload button and thumbnail previews out of the box:
+
+```tsx
+import { ReviewForm } from "@frankly/react";
+
+<ReviewForm sku="TSHIRT-BLACK-M" />
+```
+
+Features:
+
+- "Add photos" button that opens a file picker (`accept="image/*"`)
+- Thumbnail previews with remove buttons for each selected photo
+- Photos are submitted as part of the form's multipart request
+
+The `ReviewList` component displays photo thumbnails for reviews that have photos:
+
+```tsx
+import { ReviewList } from "@frankly/react";
+
+<ReviewList sku="TSHIRT-BLACK-M" />
+```
+
+Photos appear as 64x64px thumbnails below the review text, with rounded corners and a light border.
+
+## Moderation
+
+Photos are part of the review and follow the same moderation flow:
+
+- If **moderation is enabled**, the entire review (including photos) is held in `"pending"` status until approved in the admin dashboard
+- If **moderation is disabled**, reviews with photos are published immediately
+- In the admin dashboard, moderators can see photo thumbnails when reviewing pending submissions
+
+## GDPR Erasure
+
+When a GDPR erasure request is processed for a customer email, all associated review photos are also deleted from the database. The photo files in blob storage are referenced by the review photo records and will be cleaned up accordingly.
+
+## Technical Details
+
+### Upload Process
+
+1. Client sends `multipart/form-data` with `photos` field(s)
+2. Server extracts `File` objects, enforces the 3-photo limit
+3. Files are validated: size must be under 10 MB, type must be `image/jpeg`, `image/png`, or `image/webp`
+4. Invalid files are silently filtered out
+5. Valid photos are uploaded to blob storage via the `uploadPhoto` utility
+6. Photo URLs and sort orders are inserted into the `reviewPhotos` database table
+
+### Database Schema
+
+Photos are stored in a `review_photos` table with a foreign key to the review:
+
+- `id` — Unique photo ID
+- `reviewId` — References the parent review
+- `url` — CDN URL of the uploaded image
+- `sortOrder` — Display order (0, 1, 2)
