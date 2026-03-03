@@ -3,8 +3,13 @@ import { db } from "@/lib/db";
 import { reviews, reviewPhotos } from "@/lib/db/schema";
 import { validateApiKey, corsHeaders } from "@/lib/auth";
 import { verifyReviewToken } from "@/lib/tokens";
+import { uploadPhoto } from "@/lib/upload";
 import { rateLimit } from "@/lib/rate-limit";
 import { eq, and, desc, count, avg, inArray } from "drizzle-orm";
+
+const MAX_PHOTOS = 3;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export async function OPTIONS(request: NextRequest) {
   return NextResponse.json(null, {
@@ -152,30 +157,79 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const contentType = request.headers.get("content-type") || "";
+  const isMultipart = contentType.includes("multipart/form-data");
+
+  let sku: string;
+  let rating: number;
+  let title: string;
+  let reviewBody: string;
+  let reviewerName: string;
+  let reviewerEmail: string;
+  let token: string | undefined;
+  let website: string | undefined;
+  let photoFiles: File[] = [];
+
+  if (isMultipart) {
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid form data" },
+        { status: 400 },
+      );
+    }
+
+    sku = formData.get("sku") as string;
+    rating = parseInt(formData.get("rating") as string, 10);
+    title = formData.get("title") as string;
+    reviewBody = formData.get("body") as string;
+    reviewerName = formData.get("reviewerName") as string;
+    reviewerEmail = formData.get("reviewerEmail") as string;
+    token = (formData.get("token") as string) || undefined;
+    website = (formData.get("website") as string) || undefined;
+
+    // Collect photo files (field name "photos")
+    const photoEntries = formData.getAll("photos");
+    for (const entry of photoEntries) {
+      if (entry instanceof File && entry.size > 0) {
+        photoFiles.push(entry);
+      }
+    }
+
+    // Enforce limits
+    photoFiles = photoFiles.slice(0, MAX_PHOTOS);
+    photoFiles = photoFiles.filter((f) => {
+      if (f.size > MAX_FILE_SIZE) return false;
+      if (!ALLOWED_TYPES.includes(f.type)) return false;
+      return true;
+    });
+  } else {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+
+    sku = body.sku;
+    rating = body.rating;
+    title = body.title;
+    reviewBody = body.body;
+    reviewerName = body.reviewerName;
+    reviewerEmail = body.reviewerEmail;
+    token = body.token;
+    website = body.website;
   }
 
   // Honeypot: if website field is filled, silently discard
-  if (body.website) {
+  if (website) {
     return NextResponse.json(
       { id: "ok", status: "approved", message: "Review submitted." },
       { status: 201, headers: corsHeaders(request.headers.get("origin")) },
     );
   }
-
-  const {
-    sku,
-    rating,
-    title,
-    body: reviewBody,
-    reviewerName,
-    reviewerEmail,
-    token,
-  } = body;
 
   if (
     !sku ||
@@ -190,14 +244,14 @@ export async function POST(request: NextRequest) {
         error:
           "Missing required fields: sku, rating, title, body, reviewerName, reviewerEmail",
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  if (typeof rating !== "number" || rating < 1 || rating > 5) {
+  if (typeof rating !== "number" || isNaN(rating) || rating < 1 || rating > 5) {
     return NextResponse.json(
       { error: "Rating must be between 1 and 5" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -229,6 +283,21 @@ export async function POST(request: NextRequest) {
     })
     .returning({ id: reviews.id });
 
+  // Upload photos and insert into reviewPhotos table
+  if (photoFiles.length > 0) {
+    const uploadResults = await Promise.all(
+      photoFiles.map((file, i) => uploadPhoto(file, inserted.id, i)),
+    );
+
+    await db.insert(reviewPhotos).values(
+      uploadResults.map((url, i) => ({
+        reviewId: inserted.id,
+        url,
+        sortOrder: i,
+      })),
+    );
+  }
+
   return NextResponse.json(
     {
       id: inserted.id,
@@ -241,6 +310,6 @@ export async function POST(request: NextRequest) {
     {
       status: 201,
       headers: corsHeaders(request.headers.get("origin")),
-    }
+    },
   );
 }

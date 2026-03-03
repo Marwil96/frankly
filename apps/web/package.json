@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@react-email/components": "^1.0.8",
+    "@vercel/blob": "^2.3.0",
     "bcryptjs": "^2.4.3",
     "drizzle-orm": "^0.38.0",
     "jose": "^5.9.0",
