@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { reviews, stores } from "@/lib/db/schema";
+import { reviews, stores, reviewPhotos } from "@/lib/db/schema";
 import { validateAdmin } from "@/lib/auth";
-import { eq, desc, and, count } from "drizzle-orm";
+import { eq, desc, and, count, inArray } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   const payload = await validateAdmin();
@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
       reviewerName: reviews.reviewerName,
       reviewerEmail: reviews.reviewerEmail,
       status: reviews.status,
+      verifiedPurchase: reviews.verifiedPurchase,
+      locale: reviews.locale,
       createdAt: reviews.createdAt,
     })
     .from(reviews)
@@ -56,9 +58,36 @@ export async function GET(request: NextRequest) {
 
   const storeName = store?.name || "Unknown";
 
+  // Fetch photos for all reviews in this page
+  const reviewIds = data.map((r) => r.id);
+  let photosMap: Record<string, { url: string; sortOrder: number }[]> = {};
+
+  if (reviewIds.length > 0) {
+    const photos = await db
+      .select({
+        reviewId: reviewPhotos.reviewId,
+        url: reviewPhotos.url,
+        sortOrder: reviewPhotos.sortOrder,
+      })
+      .from(reviewPhotos)
+      .where(inArray(reviewPhotos.reviewId, reviewIds))
+      .orderBy(reviewPhotos.sortOrder);
+
+    for (const photo of photos) {
+      if (!photosMap[photo.reviewId]) {
+        photosMap[photo.reviewId] = [];
+      }
+      photosMap[photo.reviewId].push({
+        url: photo.url,
+        sortOrder: photo.sortOrder,
+      });
+    }
+  }
+
   const enriched = data.map((r) => ({
     ...r,
     storeName,
+    photos: photosMap[r.id] || [],
   }));
 
   return NextResponse.json({ reviews: enriched, total, page, limit });

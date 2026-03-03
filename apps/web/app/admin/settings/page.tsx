@@ -15,6 +15,7 @@ interface Store {
   emailDelayDays: number;
   emailEnabled: boolean;
   locale: string;
+  centraWebhookSecret: string | null;
   createdAt: string;
 }
 
@@ -26,10 +27,13 @@ export default function AdminSettingsPage() {
   const [emailDelayDays, setEmailDelayDays] = useState(14);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [locale, setLocale] = useState("en");
+  const [centraWebhookSecret, setCentraWebhookSecret] = useState("");
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
+  const [webhookUrlCopied, setWebhookUrlCopied] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -47,6 +51,7 @@ export default function AdminSettingsPage() {
           setEmailDelayDays(s.emailDelayDays ?? 14);
           setEmailEnabled(s.emailEnabled ?? true);
           setLocale(s.locale ?? "en");
+          setCentraWebhookSecret(s.centraWebhookSecret || "");
         }
       } catch {
         // handled by auth
@@ -76,6 +81,7 @@ export default function AdminSettingsPage() {
           emailDelayDays,
           emailEnabled,
           locale,
+          centraWebhookSecret: centraWebhookSecret || null,
         }),
       });
 
@@ -98,6 +104,14 @@ export default function AdminSettingsPage() {
     navigator.clipboard.writeText(store.apiKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleCopyWebhookUrl() {
+    if (!store) return;
+    const url = `https://frankly.dev/api/webhooks/centra?store=${store.id}`;
+    navigator.clipboard.writeText(url);
+    setWebhookUrlCopied(true);
+    setTimeout(() => setWebhookUrlCopied(false), 2000);
   }
 
   if (loading) {
@@ -180,6 +194,56 @@ export default function AdminSettingsPage() {
                 value={String(emailDelayDays)}
                 onChange={(e) => setEmailDelayDays(parseInt(e.target.value) || 0)}
               />
+            </div>
+          </div>
+
+          <div className="shadow-win95-sunken bg-white p-3">
+            <div className="font-bold text-[11px] mb-2 border-b border-win95-dark pb-1">
+              Centra Integration
+            </div>
+            <div className="flex flex-col gap-2">
+              <div>
+                <label className="text-[11px] font-bold block mb-1">
+                  Webhook URL:
+                </label>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Input
+                      value={`https://frankly.dev/api/webhooks/centra?store=${store.id}`}
+                      readOnly
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleCopyWebhookUrl}
+                  >
+                    {webhookUrlCopied ? "Copied!" : "Copy"}
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <label className="text-[11px] font-bold block mb-1">
+                  Webhook Secret:
+                </label>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Input
+                      type={showWebhookSecret ? "text" : "password"}
+                      value={centraWebhookSecret}
+                      onChange={(e) => setCentraWebhookSecret(e.target.value)}
+                      placeholder="Enter Centra webhook secret"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setShowWebhookSecret(!showWebhookSecret)}
+                  >
+                    {showWebhookSecret ? "Hide" : "Show"}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
