@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { reviews, emailRequests, stores } from "@/lib/db/schema";
 import { verifyReviewToken } from "@/lib/tokens";
+import { rateLimit } from "@/lib/rate-limit";
 import { eq } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
+  // Rate limiting
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+  if (!rateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429 },
+    );
+  }
+
   let body;
   try {
     body = await request.json();

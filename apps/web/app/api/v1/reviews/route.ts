@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { reviews, reviewPhotos } from "@/lib/db/schema";
 import { validateApiKey, corsHeaders } from "@/lib/auth";
 import { verifyReviewToken } from "@/lib/tokens";
+import { rateLimit } from "@/lib/rate-limit";
 import { eq, and, desc, count, avg, inArray } from "drizzle-orm";
 
 export async function OPTIONS(request: NextRequest) {
@@ -136,6 +137,16 @@ export async function GET(request: NextRequest) {
 
 // POST submit a review (public)
 export async function POST(request: NextRequest) {
+  // Rate limiting
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+  if (!rateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: corsHeaders(request.headers.get("origin")) },
+    );
+  }
+
   const store = await validateApiKey(request);
   if (!store) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
@@ -146,6 +157,14 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  // Honeypot: if website field is filled, silently discard
+  if (body.website) {
+    return NextResponse.json(
+      { id: "ok", status: "approved", message: "Review submitted." },
+      { status: 201, headers: corsHeaders(request.headers.get("origin")) },
+    );
   }
 
   const {
