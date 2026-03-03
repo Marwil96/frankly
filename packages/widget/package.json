@@ -1,0 +1,17 @@
+{
+  "name": "@frankly/widget",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "rollup -c",
+    "copy-widget": "cp dist/frankly-widget.min.js ../../../apps/web/public/widget/ 2>/dev/null; mkdir -p ../../apps/web/public/widget && cp dist/frankly-widget.min.js ../../apps/web/public/widget/"
+  },
+  "devDependencies": {
+    "rollup": "^4.28.0",
+    "@rollup/plugin-typescript": "^12.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-terser": "^0.4.4",
+    "typescript": "^5.7.0",
+    "tslib": "^2.8.0"
+  }
+}

@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  --color-win95-bg: #c0c0c0;
+  --color-win95-blue: #000080;
+  --color-win95-white: #ffffff;
+  --color-win95-dark: #808080;
+  --color-win95-darker: #404040;
+  --color-win95-black: #000000;
+  --color-win95-light: #dfdfdf;
+  --color-win95-teal: #008080;
+  --color-win95-yellow: #ffff00;
+  --color-win95-red: #ff0000;
+  --color-win95-green: #008000;
+
+  --font-win95: "MS Sans Serif", Tahoma, Geneva, sans-serif;
+}
+
+@utility shadow-win95-raised {
+  box-shadow:
+    inset 1px 1px 0px #ffffff,
+    inset -1px -1px 0px #808080,
+    inset 2px 2px 0px #dfdfdf,
+    inset -2px -2px 0px #404040;
+}
+
+@utility shadow-win95-sunken {
+  box-shadow:
+    inset -1px -1px 0px #ffffff,
+    inset 1px 1px 0px #808080,
+    inset -2px -2px 0px #dfdfdf,
+    inset 2px 2px 0px #404040;
+}
+
+@utility shadow-win95-button {
+  box-shadow:
+    inset 1px 1px 0px #ffffff,
+    inset -1px -1px 0px #404040,
+    inset 2px 2px 0px #dfdfdf,
+    inset -2px -2px 0px #808080;
+}
+
+@utility shadow-win95-button-pressed {
+  box-shadow:
+    inset -1px -1px 0px #ffffff,
+    inset 1px 1px 0px #404040,
+    inset -2px -2px 0px #dfdfdf,
+    inset 2px 2px 0px #808080;
+}
+
+@utility win95-titlebar {
+  background: linear-gradient(90deg, #000080, #1084d0);
+  color: #ffffff;
+  padding: 2px 4px;
+  font-weight: bold;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+
+* {
+  font-family: var(--font-win95);
+}
+
+body {
+  font-size: 11px;
+  background-color: var(--color-win95-teal);
+  color: var(--color-win95-black);
+  margin: 0;
+}
+
+::selection {
+  background: var(--color-win95-blue);
+  color: var(--color-win95-white);
+}
