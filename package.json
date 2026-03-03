@@ -1,0 +1,20 @@
+{
+  "name": "frankly",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/widget",
+    "packages/react"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w packages/widget && npm run copy-widget -w packages/widget && npm run build -w packages/react && npm run build -w apps/web",
+    "build:widget": "npm run build -w packages/widget && npm run copy-widget -w packages/widget",
+    "build:react": "npm run build -w packages/react",
+    "build:web": "npm run build -w apps/web",
+    "db:generate": "npm run db:generate -w apps/web",
+    "db:push": "npm run db:push -w apps/web",
+    "db:studio": "npm run db:studio -w apps/web",
+    "db:seed": "npm run db:seed -w apps/web"
+  }
+}
