@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  /* ── Win95 tokens (admin dashboard) ── */
   --color-win95-bg: #c0c0c0;
   --color-win95-blue: #000080;
   --color-win95-white: #ffffff;
@@ -14,7 +15,22 @@
   --color-win95-green: #008000;
 
   --font-win95: "MS Sans Serif", Tahoma, Geneva, sans-serif;
+
+  /* ── Marketing tokens (landing page) ── */
+  --color-cream: #F5F0EB;
+  --color-card: #FAFAF8;
+  --color-text: #1A1A1A;
+  --color-text-secondary: #6B6560;
+  --color-border: #E5DDD5;
+  --color-terracotta: #C45D3E;
+  --color-ochre: #D4A843;
+  --color-deep-blue: #2B4C7E;
+  --color-code-bg: #2A2520;
+
+  --font-marketing: var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif;
 }
+
+/* ── Win95 utilities (admin dashboard) ── */
 
 @utility shadow-win95-raised {
   box-shadow:
@@ -60,18 +76,15 @@
   user-select: none;
 }
 
-* {
-  font-family: var(--font-win95);
-}
+/* ── Base reset (neutral — no Win95 defaults) ── */
 
 body {
-  font-size: 11px;
-  background-color: var(--color-win95-teal);
-  color: var(--color-win95-black);
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background: var(--color-win95-blue);
-  color: var(--color-win95-white);
+  background: var(--color-terracotta);
+  color: #ffffff;
 }

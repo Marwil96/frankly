@@ -30,7 +30,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="h-screen flex text-[11px] font-[family-name:var(--font-win95)]">
+    <div className="h-screen flex text-[11px] font-[family-name:var(--font-win95)] bg-win95-teal text-win95-black">
       <Panel variant="raised" className="w-48 flex flex-col shrink-0 !p-0">
         <div className="bg-win95-blue text-win95-white px-3 py-2 font-bold text-[13px] tracking-wide">
           Frankly Admin

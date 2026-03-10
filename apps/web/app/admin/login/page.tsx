@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center font-[family-name:var(--font-win95)]">
+    <div className="min-h-screen flex items-center justify-center font-[family-name:var(--font-win95)] bg-win95-teal text-win95-black text-[11px]">
       <Window title="Frankly - Administrator Login" className="w-80">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex items-center gap-3 mb-1">
